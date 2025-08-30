@@ -1,10 +1,9 @@
 from telethon import events
 from telethon.tl.types import ChannelParticipantsAdmins
 from bot_client import client
-from collections import Counter
 import asyncio
 
-# In-memory message tracking
+# In-memory message count
 user_messages = {}
 
 # Track messages for activity
@@ -15,9 +14,13 @@ async def track_messages(event):
     sender = await event.get_sender()
     user_messages[sender.id] = user_messages.get(sender.id, 0) + 1
 
-# /mam command with dynamic top N
-@client.on(events.NewMessage(pattern=r'^/mam(?:\s+(\d+))?'))
+# /mam command
+@client.on(events.NewMessage(pattern=r'^/mam(?:\s+(\d+))?$'))
 async def mam_command(event):
+    if not event.is_group:
+        await event.reply("ℹ️ This command only works in groups.")
+        return
+
     chat = await event.get_chat()
     sender = await event.get_sender()
 
@@ -27,10 +30,10 @@ async def mam_command(event):
         await event.reply("❌ Only admins can use this command.")
         return
 
-    # Get number of top members, default 10
-    n = event.pattern_match.group(1)
+    # Get number of top members (default 10)
+    n_str = event.pattern_match.group(1)
     try:
-        n = int(n)
+        n = int(n_str) if n_str else 10
         if n <= 0:
             n = 10
     except:
@@ -42,8 +45,6 @@ async def mam_command(event):
 
     # Sort users by message count
     sorted_users = sorted(user_messages.items(), key=lambda x: x[1], reverse=True)
-    
-    # Take top n
     top_n = sorted_users[:n]
 
     text = f"📊 **Top {len(top_n)} Most Active Members:**\n\n"
