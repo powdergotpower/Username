@@ -5,7 +5,6 @@ import asyncio
 
 ongoing_mentions = {}
 
-# Dynamic batch size based on total members
 def batch_size(total):
     if total <= 10: return 1
     elif total <= 50: return 2
@@ -19,15 +18,13 @@ async def all_command(event):
     chat = await event.get_chat()
     sender = await event.get_sender()
 
-    # Only admins can run
+    # ✅ check admin
     admins = await client.get_participants(chat, filter=ChannelParticipantsAdmins)
     if sender.id not in [a.id for a in admins]:
         await event.reply("❌ Only admins can use this command.")
         return
 
     text = event.pattern_match.group(1) or "Hey everyone!"
-
-    # Get all members
     members = await client.get_participants(chat)
     total = len(members)
 
@@ -41,12 +38,10 @@ async def all_command(event):
             break
 
         batch = members[i:i+size]
-        mentions = []
-        for m in batch:
-            if m.username:
-                mentions.append(f"@{m.username}")
-            else:
-                mentions.append(f"[{m.first_name}](tg://user?id={m.id})")
+        mentions = [
+            f"@{m.username}" if m.username else f"[{m.first_name}](tg://user?id={m.id})"
+            for m in batch
+        ]
 
         await client.send_message(chat, f"{' '.join(mentions)}\n\n{text}", parse_mode='md')
         await asyncio.sleep(3)
@@ -58,7 +53,6 @@ async def stopall(event):
     chat = await event.get_chat()
     sender = await event.get_sender()
 
-    # Only admins
     admins = await client.get_participants(chat, filter=ChannelParticipantsAdmins)
     if sender.id not in [a.id for a in admins]:
         await event.reply("❌ Only admins can use this command.")
