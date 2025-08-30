@@ -1,8 +1,6 @@
-import asyncio
-from modules.all import all_command
+from modules.all import client  # import the client from modules/all.py
 
-async def main():
-    await all_command()  # starts the bot and listens for /all
-
-if __name__ == "__main__":
-    asyncio.run(main())
+# Start the bot
+client.start()
+print("Bot is running...")
+client.run_until_disconnected()
