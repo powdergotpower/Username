@@ -38,8 +38,6 @@ async def autosave_loop():
 async def track_activity(event):
     uid = event.sender_id
     activity_log[uid].append(datetime.now())
-    # Optional: save every message
-    # save_activity()
 
 # ----- Helper to count messages for period -----
 def count_messages(timestamps, days=None):
@@ -98,6 +96,12 @@ async def mam_buttons(event):
         [Button.inline("Weekly 📅", b"weekly"), Button.inline("Monthly 📆", b"monthly"), Button.inline("Total 🏆", b"total")]
     ], parse_mode='md')
 
-# ----- Start autosave loop -----
-asyncio.create_task(autosave_loop())
+# ----- Schedule autosave inside Telethon loop -----
+@client.on(events.NewMessage(pattern=r'^/start'))
+async def start_autosave(event):
+    if not hasattr(client, "_autosave_started"):
+        client.loop.create_task(autosave_loop())
+        client._autosave_started = True
+
+# ----- Load activity on import -----
 load_activity()
