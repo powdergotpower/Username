@@ -1,7 +1,7 @@
 from telethon import events, Button
 from bot_client import client  # use the shared client
 
-# PM-only start command
+# PM-only /start command
 @client.on(events.NewMessage(pattern='/start'))
 async def start(event):
     if not event.is_private:
@@ -9,8 +9,8 @@ async def start(event):
     bot_name = (await client.get_me()).first_name
     welcome_text = (
         f"👋 Hello!\nI am **{bot_name}** 🤖\n\n"
-        "I can help you manage Telegram groups efficiently.\n"
-        "Use the buttons below to learn more."
+        "I can assist you in managing your Telegram groups effectively.\n"
+        "Tap the buttons below to explore my features and commands."
     )
     buttons = [
         [Button.inline("Help 📖", b"help"), Button.inline("Owner 👤", b"owner")]
@@ -20,20 +20,24 @@ async def start(event):
 @client.on(events.CallbackQuery)
 async def callback(event):
     if event.data == b"help":
-        text = (
-            "📌 **Commands Info:**\n"
-            "/all — Mentions members in batches (admins only).\n"
-            "/stopall — Stops ongoing mentions.\n"
-            "/mam — Shows most active members.\n"
-            "/dn on/off — Deletes nudity automatically.\n\n"
-            "(This is PM-only informational help.)"
-        )
-        await event.edit(text)
+        help_text = """📌 **Commands Info:**
+
+/all (message) — Mentions all members of the group in batches. Only admins can use this command.
+Example: `/all Hey everyone!`
+The bot will mention members in small groups to avoid flooding, and the batch size adjusts automatically depending on the group size.
+
+/stopall — Stops ongoing mentions.
+
+/mam — Shows the most active members in the group.
+
+/dn on/off — Deletes nudity automatically.
+"""
+        await event.edit(help_text)
     elif event.data == b"owner":
-        text = (
-            "👤 **Owner Info:**\n"
-            "This bot was built by @s1dh7 ❤️\n"
-            "Feel free to add it to your group.\n"
-            "Report any issues to the owner."
-        )
-        await event.edit(text)
+        owner_text = """👤 **Owner Info:**
+
+This bot was built by @s1dh7 ❤️
+Feel free to add it to your group.
+Report any issues to the owner.
+"""
+        await event.edit(owner_text)
