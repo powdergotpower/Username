@@ -1,96 +1,66 @@
-# dn.py
 from telethon import events
 from bot_client import client
-from PIL import Image, ImageSequence
-import tempfile
+import json
 import os
+import aiohttp
 
-# Threshold for NSFW detection
-SKIN_RATIO_THRESHOLD = 0.3
+# JSON file to store dn settings
+DN_FILE = "dn.json"
 
-# Store DN state per chat
-dn_enabled = {}
+if not os.path.exists(DN_FILE):
+    with open(DN_FILE, "w") as f:
+        json.dump({}, f)
 
-def detect_nudity(image_path):
-    """Detects NSFW based on skin pixel ratio"""
-    try:
-        img = Image.open(image_path).convert("RGB")
-    except:
-        return False
+def load_dn():
+    with open(DN_FILE, "r") as f:
+        return json.load(f)
 
-    width, height = img.size
-    pixels = img.load()
-    skin_pixels = 0
-    total_pixels = width * height
+def save_dn(data):
+    with open(DN_FILE, "w") as f:
+        json.dump(data, f)
 
-    for x in range(width):
-        for y in range(height):
-            r, g, b = pixels[x, y]
-            if r > 95 and g > 40 and g < 100 and b > 20 and abs(r - g) > 15 and r > b:
-                skin_pixels += 1
+dn_data = load_dn()
 
-    skin_ratio = skin_pixels / total_pixels
-    return skin_ratio > SKIN_RATIO_THRESHOLD
+# Command: /dn on/off
+@client.on(events.NewMessage(pattern=r'/dn (on|off)'))
+async def dn_command(event):
+    chat = await event.get_chat()
+    arg = event.pattern_match.group(1).lower()
 
-def detect_nudity_gif(image_path):
-    """Check all frames in GIF"""
-    try:
-        img = Image.open(image_path)
-    except:
-        return False
-
-    for frame in ImageSequence.Iterator(img):
-        frame = frame.convert("RGB")
-        width, height = frame.size
-        pixels = frame.load()
-        skin_pixels = 0
-        total_pixels = width * height
-        for x in range(width):
-            for y in range(height):
-                r, g, b = pixels[x, y]
-                if r > 95 and g > 40 and g < 100 and b > 20 and abs(r - g) > 15 and r > b:
-                    skin_pixels += 1
-        skin_ratio = skin_pixels / total_pixels
-        if skin_ratio > SKIN_RATIO_THRESHOLD:
-            return True
-    return False
-
-# Command to turn DN on/off
-@client.on(events.NewMessage(pattern=r'^/dn (on|off)$'))
-async def dn_toggle(event):
-    chat_id = event.chat_id
-    state = event.pattern_match.group(1)
-    if state == "on":
-        dn_enabled[chat_id] = True
-        await event.reply("✅ Auto NSFW deletion is ON for this chat.")
+    if arg == "on":
+        dn_data[str(chat.id)] = True
+        save_dn(dn_data)
+        await event.reply("✅ NSFW detection is now ON for this chat.")
     else:
-        dn_enabled[chat_id] = False
-        await event.reply("❌ Auto NSFW deletion is OFF for this chat.")
+        dn_data[str(chat.id)] = False
+        save_dn(dn_data)
+        await event.reply("❌ NSFW detection is now OFF for this chat.")
 
-# Monitor new messages
-@client.on(events.NewMessage)
-async def check_media(event):
-    chat_id = event.chat_id
-    if not dn_enabled.get(chat_id, False):
-        return
-    if not event.media:
-        return
+# Function to check NSFW via free API
+async def is_nsfw(file_path):
+    url = "https://api.deepai.org/api/nsfw-detector"
+    api_key = "quickstart-QUdJIGlzIGNvbWluZy4uLi4K"  # Free quickstart key
+    async with aiohttp.ClientSession() as session:
+        with open(file_path, "rb") as f:
+            data = {'image': f}
+            headers = {'api-key': api_key}
+            async with session.post(url, data=data, headers=headers) as resp:
+                result = await resp.json()
+                nsfw_score = result.get("output", {}).get("nsfw_score", 0)
+                return nsfw_score > 0.5  # Adjust threshold if needed
 
-    # Download media to temp file
-    temp_file = tempfile.NamedTemporaryFile(delete=False)
-    await event.download_media(temp_file.name)
+# Watch messages
+@client.on(events.NewMessage())
+async def detect_nsfw(event):
+    chat_id = str(event.chat_id)
+    if not dn_data.get(chat_id):
+        return  # Detection off
 
-    is_nsfw = False
-    if temp_file.name.lower().endswith((".gif", ".webp")):  # GIF or sticker
-        is_nsfw = detect_nudity_gif(temp_file.name)
-    else:  # Regular image
-        is_nsfw = detect_nudity(temp_file.name)
-
-    if is_nsfw:
-        try:
-            await event.delete()
-            await event.respond("⚠️ NSFW content detected and deleted.")
-        except:
-            pass
-
-    os.unlink(temp_file.name)
+    if event.photo or event.media:
+        # Download file temporarily
+        file_path = await event.download_media()
+        if file_path:
+            if await is_nsfw(file_path):
+                await event.delete()
+                await event.respond("⚠️ NSFW content detected and deleted!")
+            os.remove(file_path)
