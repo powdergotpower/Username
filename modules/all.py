@@ -1,6 +1,6 @@
 import os
 import asyncio
-from telethon import TelegramClient
+from telethon import TelegramClient, events
 from telethon.tl.types import ChannelParticipantsAdmins
 from dotenv import load_dotenv
 
@@ -27,37 +27,38 @@ def batch_size(total):
     else:
         return 20
 
-async def all_command():
-    @client.on(events.NewMessage(pattern='/all'))
-    async def handler(event):
-        chat = await event.get_chat()
-        sender = await event.get_sender()
-        # Only admins/creator can run
-        if not (await client.is_admin(chat, sender.id)):
-            await event.reply("❌ Only admins can use this command.")
-            return
+# /all command
+@client.on(events.NewMessage(pattern='/all'))
+async def handler(event):
+    chat = await event.get_chat()
+    sender = await event.get_sender()
 
-        # Get message text
-        args = event.message.message.split(" ", 1)
-        text = args[1] if len(args) > 1 else "Hey everyone!"
+    # Only admins/creator can run
+    admins = await client.get_participants(chat, filter=ChannelParticipantsAdmins)
+    admin_ids = [a.id for a in admins]
+    if sender.id not in admin_ids:
+        await event.reply("❌ Only admins can use this command.")
+        return
 
-        # Fetch all participants
-        members = await client.get_participants(chat)
-        total = len(members)
-        size = batch_size(total)
+    # Get message text after /all
+    args = event.message.message.split(" ", 1)
+    text = args[1] if len(args) > 1 else "Hey everyone!"
 
-        await event.reply(f"👥 Tagging {total} members in batches of {size}...")
+    # Fetch all participants
+    members = await client.get_participants(chat)
+    total = len(members)
+    size = batch_size(total)
 
-        # Send mentions in batches
-        for i in range(0, total, size):
-            batch = members[i:i+size]
-            mentions = []
-            for m in batch:
-                if m.username:
-                    mentions.append(f"@{m.username}")
-                else:
-                    mentions.append(f"[{m.first_name}](tg://user?id={m.id})")
-            await client.send_message(chat, f"{' '.join(mentions)}\n\n{text}", parse_mode='md')
-            await asyncio.sleep(5)
+    await event.reply(f"👥 Tagging {total} members in batches of {size}...")
 
-    await client.run_until_disconnected()
+    # Mention members in batches
+    for i in range(0, total, size):
+        batch = members[i:i+size]
+        mentions = []
+        for m in batch:
+            if m.username:
+                mentions.append(f"@{m.username}")
+            else:
+                mentions.append(f"[{m.first_name}](tg://user?id={m.id})")
+        await client.send_message(chat, f"{' '.join(mentions)}\n\n{text}", parse_mode='md')
+        await asyncio.sleep(5)  # delay between batches
