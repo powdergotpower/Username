@@ -1,9 +1,19 @@
+import os
 import asyncio
-from telegram import Update
-from telegram.ext import ContextTypes
+from telethon import TelegramClient
+from telethon.tl.types import ChannelParticipantsAdmins
+from dotenv import load_dotenv
 
-# Calculate batch size based on total members
-def calculate_batch_size(total):
+load_dotenv()
+
+API_ID = int(os.getenv("API_ID"))
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+client = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+
+# Dynamic batch size
+def batch_size(total):
     if total <= 10:
         return 1
     elif total <= 50:
@@ -17,49 +27,37 @@ def calculate_batch_size(total):
     else:
         return 20
 
-# /all command
-async def all_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat = update.effective_chat
-    user = update.effective_user
+async def all_command():
+    @client.on(events.NewMessage(pattern='/all'))
+    async def handler(event):
+        chat = await event.get_chat()
+        sender = await event.get_sender()
+        # Only admins/creator can run
+        if not (await client.is_admin(chat, sender.id)):
+            await event.reply("❌ Only admins can use this command.")
+            return
 
-    # ✅ Fetch admins and check permissions
-    admins = await context.bot.get_chat_administrators(chat.id)
-    admin_ids = [admin.user.id for admin in admins]
-    if user.id not in admin_ids:
-        await update.message.reply_text("❌ Only admins can use this command.")
-        return
+        # Get message text
+        args = event.message.message.split(" ", 1)
+        text = args[1] if len(args) > 1 else "Hey everyone!"
 
-    # ✅ Get message text
-    message_text = " ".join(context.args) if context.args else "Hey everyone!"
+        # Fetch all participants
+        members = await client.get_participants(chat)
+        total = len(members)
+        size = batch_size(total)
 
-    # ✅ Fetch all known members (for now: admins only, you can expand later)
-    members = [admin.user for admin in admins]
-    total_members = len(members)
-    batch_size = calculate_batch_size(total_members)
+        await event.reply(f"👥 Tagging {total} members in batches of {size}...")
 
-    await update.message.reply_text(
-        f"👥 Tagging {total_members} members in batches of {batch_size}..."
-    )
+        # Send mentions in batches
+        for i in range(0, total, size):
+            batch = members[i:i+size]
+            mentions = []
+            for m in batch:
+                if m.username:
+                    mentions.append(f"@{m.username}")
+                else:
+                    mentions.append(f"[{m.first_name}](tg://user?id={m.id})")
+            await client.send_message(chat, f"{' '.join(mentions)}\n\n{text}", parse_mode='md')
+            await asyncio.sleep(5)
 
-    # ✅ Mention members in batches
-    for i in range(0, total_members, batch_size):
-        batch = members[i:i + batch_size]
-        mentions_list = []
-
-        for m in batch:
-            if m.username:
-                mentions_list.append(f"@{m.username}")
-            else:
-                mentions_list.append(f"[{m.first_name}](tg://user?id={m.id})")
-
-        mentions_text = " ".join(mentions_list)
-        try:
-            await context.bot.send_message(
-                chat.id,
-                f"{mentions_text}\n\n{message_text}",
-                parse_mode="Markdown"
-            )
-        except Exception as e:
-            print("Error sending message:", e)
-
-        await asyncio.sleep(5)  # delay between batches
+    await client.run_until_disconnected()
