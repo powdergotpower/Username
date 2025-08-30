@@ -1,14 +1,5 @@
-import os
-from telethon import TelegramClient, events, Button
-from dotenv import load_dotenv
-
-load_dotenv()
-
-API_ID = int(os.getenv("API_ID"))
-API_HASH = os.getenv("API_HASH")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-
-client = TelegramClient('bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+from telethon import events, Button
+from modules.all import client  # import the existing client
 
 # ------------------ /start command ------------------
 @client.on(events.NewMessage(pattern='/start'))
@@ -20,9 +11,8 @@ async def start(event):
     welcome_text = (
         f"👋 Hello!\nI am **{bot_name}** 🤖\n\n"
         "I can help you manage Telegram groups efficiently.\n"
-        "I can mention members, track active users, delete nudity content automatically, "
-        "and more!\n\n"
-        "Use the buttons below to learn more about my commands or about my owner."
+        "Here you will find information about my commands and owner.\n\n"
+        "Use the buttons below to learn more."
     )
 
     buttons = [
@@ -36,12 +26,12 @@ async def start(event):
 async def callback(event):
     if event.data == b"help":
         help_text = (
-            "📌 **Commands and Usage:**\n\n"
-            "/all Hey — Mentions all members in the group in batches. Admins only.\n"
-            "Example: `/all Hello everyone!`\n\n"
-            "/stopall — Stops ongoing mention process.\n\n"
-            "/mam — Shows ranking of most active members in the group.\n\n"
-            "/dn on/off — Automatically deletes nudity content when turned on."
+            "📌 **Commands Info:**\n\n"
+            "/all Hey — Mentions all members in a group in batches. Admins only.\n"
+            "/stopall — Stops ongoing mention process.\n"
+            "/mam — Shows ranking of most active members in the group.\n"
+            "/dn on/off — Automatically deletes nudity content when turned on.\n\n"
+            "This section is only informational and does not run in PM."
         )
         await event.edit(help_text)
     elif event.data == b"owner":
