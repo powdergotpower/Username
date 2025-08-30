@@ -17,6 +17,7 @@ async def start(event):
     ]
     await event.respond(welcome_text, buttons=buttons)
 
+# ------------------ Inline button callbacks ------------------
 @client.on(events.CallbackQuery)
 async def callback(event):
     if event.data == b"help":
@@ -32,7 +33,9 @@ The bot will mention members in small groups to avoid flooding, and the batch si
 
 /dn on/off — Deletes nudity automatically.
 """
-        await event.edit(help_text)
+        buttons = [[Button.inline("Back 🔙", b"back")]]
+        await event.edit(help_text, buttons=buttons)
+        
     elif event.data == b"owner":
         owner_text = """👤 **Owner Info:**
 
@@ -40,4 +43,18 @@ This bot was built by @s1dh7 ❤️
 Feel free to add it to your group.
 Report any issues to the owner.
 """
-        await event.edit(owner_text)
+        buttons = [[Button.inline("Back 🔙", b"back")]]
+        await event.edit(owner_text, buttons=buttons)
+        
+    elif event.data == b"back":
+        # Show the main start menu again
+        bot_name = (await client.get_me()).first_name
+        welcome_text = (
+            f"👋 Hello!\nI am **{bot_name}** 🤖\n\n"
+            "I can assist you in managing your Telegram groups effectively.\n"
+            "Tap the buttons below to explore my features and commands."
+        )
+        buttons = [
+            [Button.inline("Help 📖", b"help"), Button.inline("Owner 👤", b"owner")]
+        ]
+        await event.edit(welcome_text, buttons=buttons)
