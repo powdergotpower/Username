@@ -1,6 +1,6 @@
 from bot_client import client
-import modules.start  # attach the /start PM handler
-# You can import group command modules later here, e.g., modules.all
+import modules.start       # PM-only /start with Help & Owner buttons
+import modules.mention     # /all and /stopall commands in groups
 
-print("Bot is running...")
+print("🤖 Bot is running...")
 client.run_until_disconnected()
