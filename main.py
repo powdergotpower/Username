@@ -1,13 +1,17 @@
 import os
 from telegram.ext import Application, CommandHandler
-from modules.all import all_command  # ✅ import our command
+from modules.all import all_command
+from dotenv import load_dotenv  # ✅ add this
 
-TOKEN = os.getenv("BOT_TOKEN")
+# Load environment variables from .env
+load_dotenv()
+
+TOKEN = os.getenv("BOT_TOKEN")  # now this will read your token from .env
 
 def main():
     app = Application.builder().token(TOKEN).build()
 
-    # ✅ register /all command
+    # Register /all command
     app.add_handler(CommandHandler("all", all_command))
 
     print("Bot is running...")
