@@ -1,10 +1,10 @@
 from telethon import events
 from telethon.tl.types import ChannelParticipantsAdmins
 from bot_client import client
-import asyncio
+from collections import defaultdict
 
-# In-memory message count
-user_messages = {}
+# In-memory message tracking
+user_messages = defaultdict(int)
 
 # Track messages for activity
 @client.on(events.NewMessage())
@@ -12,7 +12,8 @@ async def track_messages(event):
     if not event.is_group:
         return
     sender = await event.get_sender()
-    user_messages[sender.id] = user_messages.get(sender.id, 0) + 1
+    if sender:  # Make sure sender exists
+        user_messages[sender.id] += 1
 
 # /mam command
 @client.on(events.NewMessage(pattern=r'^/mam(?:\s+(\d+))?$'))
@@ -26,11 +27,12 @@ async def mam_command(event):
 
     # Only admins
     admins = await client.get_participants(chat, filter=ChannelParticipantsAdmins)
-    if sender.id not in [a.id for a in admins]:
+    admin_ids = [a.id for a in admins]
+    if sender.id not in admin_ids:
         await event.reply("❌ Only admins can use this command.")
         return
 
-    # Get number of top members (default 10)
+    # Get top N from command, default 10
     n_str = event.pattern_match.group(1)
     try:
         n = int(n_str) if n_str else 10
@@ -43,7 +45,7 @@ async def mam_command(event):
         await event.reply("ℹ️ No messages tracked yet in this group.")
         return
 
-    # Sort users by message count
+    # Sort users by messages
     sorted_users = sorted(user_messages.items(), key=lambda x: x[1], reverse=True)
     top_n = sorted_users[:n]
 
@@ -54,6 +56,6 @@ async def mam_command(event):
             name = user.first_name or "User"
             text += f"{idx}. [{name}](tg://user?id={user_id}) — {count} messages\n"
         except:
-            continue
+            text += f"{idx}. UserID {user_id} — {count} messages\n"
 
     await event.reply(text, parse_mode="md")
