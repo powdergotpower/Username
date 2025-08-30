@@ -2,7 +2,6 @@ from bot_client import client
 import asyncio
 
 # Dictionary to track ongoing mentions per chat
-# key = chat.id, value = True/False
 ongoing_mentions = {}
 
 @client.on(events.NewMessage(pattern='/all'))
@@ -10,7 +9,7 @@ async def all_command(event):
     chat = await event.get_chat()
     sender = await event.get_sender()
     
-    # Only admins can use this
+    # Only admins can use
     if not (await client.is_admin(chat, sender.id)):
         await event.reply("❌ Only admins can use this command.")
         return
@@ -18,11 +17,10 @@ async def all_command(event):
     args = event.message.message.split(" ", 1)
     text = args[1] if len(args) > 1 else "Hey everyone!"
 
-    # Fetch members
     members = await client.get_participants(chat)
     total = len(members)
 
-    # Determine batch size
+    # Determine batch size dynamically
     if total <= 10:
         batch_size = 1
     elif total <= 50:
@@ -38,12 +36,11 @@ async def all_command(event):
 
     await event.reply(f"👥 Mentioning {total} members in batches of {batch_size}...")
 
-    ongoing_mentions[chat.id] = True  # flag to allow stopping
+    ongoing_mentions[chat.id] = True
 
-    # Send mentions in batches
     for i in range(0, total, batch_size):
         if not ongoing_mentions.get(chat.id):
-            break  # stop if /stopall was called
+            break
 
         batch = members[i:i+batch_size]
         mentions = []
@@ -54,6 +51,6 @@ async def all_command(event):
                 mentions.append(f"[{m.first_name}](tg://user?id={m.id})")
 
         await client.send_message(chat, f"{' '.join(mentions)}\n\n{text}", parse_mode='md')
-        await asyncio.sleep(3)  # 3 sec delay between batches
+        await asyncio.sleep(3)
 
-    ongoing_mentions[chat.id] = False  # reset flag after done
+    ongoing_mentions[chat.id] = False
