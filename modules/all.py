@@ -1,26 +1,24 @@
 from bot_client import client
 import asyncio
 
-# Dictionary to track ongoing mentions per chat
+# Track ongoing mentions per chat
 ongoing_mentions = {}
 
-@client.on(events.NewMessage(pattern='/all'))
+@client.on(events.NewMessage(pattern=r'^/all(?:\s+(.*))?'))
 async def all_command(event):
     chat = await event.get_chat()
     sender = await event.get_sender()
-    
-    # Only admins can use
+
+    # Only admins
     if not (await client.is_admin(chat, sender.id)):
         await event.reply("❌ Only admins can use this command.")
         return
 
-    args = event.message.message.split(" ", 1)
-    text = args[1] if len(args) > 1 else "Hey everyone!"
-
+    text = event.pattern_match.group(1) or "Hey everyone!"
     members = await client.get_participants(chat)
     total = len(members)
 
-    # Determine batch size dynamically
+    # Batch size based on total members
     if total <= 10:
         batch_size = 1
     elif total <= 50:
@@ -35,7 +33,6 @@ async def all_command(event):
         batch_size = 20
 
     await event.reply(f"👥 Mentioning {total} members in batches of {batch_size}...")
-
     ongoing_mentions[chat.id] = True
 
     for i in range(0, total, batch_size):
